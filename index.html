@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Subway Runner Web Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  background:#111;
+  font-family:Arial;
+  color:white;
+  text-align:center;
+  overflow:hidden;
+}
+
+#game{
+  position:relative;
+  width:100%;
+  max-width:400px;
+  height:600px;
+  margin:auto;
+  background: linear-gradient(#222,#000);
+  overflow:hidden;
+  border:3px solid #ff3d00;
+}
+
+.track{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  height:120px;
+  background: repeating-linear-gradient(
+    to right,#333,#333 40px,#222 40px,#222 80px
+  );
+}
+
+#player{
+  position:absolute;
+  bottom:120px;
+  left:170px;
+  font-size:40px;
+  transition:0.1s;
+}
+
+.obstacle{
+  position:absolute;
+  top:-40px;
+  font-size:35px;
+}
+
+.coin{
+  position:absolute;
+  top:-40px;
+  font-size:30px;
+}
+
+#ui{
+  padding:10px;
+}
+
+#gameover{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:10;
+}
+
+.btn{
+  background:#ff3d00;
+  color:white;
+  border:none;
+  padding:12px 20px;
+  margin:10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🛹 Subway Runner Web Game</h2>
+
+<div id="ui">
+Score: <span id="score">0</span> |
+Coins: <span id="coins">0</span>
+</div>
+
+<div id="game">
+  <div id="player">🏃‍♂️</div>
+  <div class="track"></div>
+
+  <div id="gameover">
+    <h1>GAME OVER</h1>
+    <p>Score: <span id="finalScore">0</span></p>
+    <button class="btn" onclick="restart()">Restart</button>
+  </div>
+</div>
+
+<p>Controls: ⬅️ ➡️ Jump: ⬆️ | Mobile: Tap sides</p>
+
+<script>
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+const scoreEl = document.getElementById("score");
+const coinsEl = document.getElementById("coins");
+const gameoverScreen = document.getElementById("gameover");
+const finalScoreEl = document.getElementById("finalScore");
+
+let lanes = [60,170,280];
+let lane = 1;
+let score = 0;
+let coins = 0;
+let speed = 3;
+let gameRunning = true;
+
+player.style.left = lanes[lane]+"px";
+
+// controls
+document.addEventListener("keydown",e=>{
+  if(!gameRunning) return;
+  if(e.key==="ArrowLeft" && lane>0){lane--;}
+  if(e.key==="ArrowRight" && lane<2){lane++;}
+  if(e.key==="ArrowUp"){jump();}
+  player.style.left = lanes[lane]+"px";
+});
+
+// mobile touch
+game.addEventListener("click",e=>{
+  if(!gameRunning) return;
+  const x = e.clientX;
+  const w = window.innerWidth;
+  if(x < w/2 && lane>0) lane--;
+  else if(x >= w/2 && lane<2) lane++;
+  player.style.left = lanes[lane]+"px";
+});
+
+function jump(){
+  player.style.bottom="170px";
+  setTimeout(()=>{player.style.bottom="120px";},400);
+}
+
+// obstacle generator
+function createObstacle(){
+  if(!gameRunning) return;
+  const obs = document.createElement("div");
+  obs.classList.add("obstacle");
+  obs.innerHTML="🚧";
+  let obsLane = Math.floor(Math.random()*3);
+  obs.style.left = lanes[obsLane]+"px";
+  obs.style.top="-40px";
+  game.appendChild(obs);
+
+  let fall = setInterval(()=>{
+    let top = parseInt(obs.style.top);
+    obs.style.top = top + speed + "px";
+
+    // collision
+    const pRect = player.getBoundingClientRect();
+    const oRect = obs.getBoundingClientRect();
+    if(
+      pRect.left < oRect.right &&
+      pRect.right > oRect.left &&
+      pRect.top < oRect.bottom &&
+      pRect.bottom > oRect.top
+    ){
+      gameOver();
+      clearInterval(fall);
+    }
+
+    if(top>600){
+      obs.remove();
+      clearInterval(fall);
+    }
+  },20);
+}
+
+// coin generator
+function createCoin(){
+  if(!gameRunning) return;
+  const coin = document.createElement("div");
+  coin.classList.add("coin");
+  coin.innerHTML="🪙";
+  let cLane = Math.floor(Math.random()*3);
+  coin.style.left = lanes[cLane]+"px";
+  coin.style.top="-40px";
+  game.appendChild(coin);
+
+  let fall = setInterval(()=>{
+    let top = parseInt(coin.style.top);
+    coin.style.top = top + speed + "px";
+
+    // collect
+    const pRect = player.getBoundingClientRect();
+    const cRect = coin.getBoundingClientRect();
+    if(
+      pRect.left < cRect.right &&
+      pRect.right > cRect.left &&
+      pRect.top < cRect.bottom &&
+      pRect.bottom > cRect.top
+    ){
+      coins++;
+      coinsEl.innerText = coins;
+      coin.remove();
+      clearInterval(fall);
+    }
+
+    if(top>600){
+      coin.remove();
+      clearInterval(fall);
+    }
+  },20);
+}
+
+// game loop
+setInterval(()=>{
+  if(!gameRunning) return;
+  score++;
+  scoreEl.innerText = score;
+  if(score%200===0) speed++; // speed increase
+},100);
+
+setInterval(createObstacle,1500);
+setInterval(createCoin,1000);
+
+function gameOver(){
+  gameRunning=false;
+  finalScoreEl.innerText = score;
+  gameoverScreen.style.display="flex";
+}
+
+function restart(){
+  location.reload();
+}
+</script>
+
+</body>
+</html>
